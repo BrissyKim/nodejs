@@ -1,6 +1,7 @@
 var http = require("http");
 var fs = require("fs");
 var url = require("url");
+var qs = require('querystring');
 
 function templateHTML(title, list, body) {
   return `
@@ -13,6 +14,7 @@ function templateHTML(title, list, body) {
   <body>
     <h1><a href="/">WEB </a></h1>
     ${list}
+    <a href="/create">Create</a>
     ${body}
   </body>
   </html>
@@ -27,7 +29,7 @@ function templateList(fileList) {
     list = list + `<li><a href="/?id=${fileList[i]}">${fileList[i]}</a></li>`;
     i = i + 1;
   }
-  list = list + '<ul>';
+  list = list + '</ul>';
   return list;
 
 }
@@ -37,7 +39,9 @@ var app = http.createServer(function (request, response) {
   var queryData = url.parse(_url, true).query;
   var pathname = url.parse(_url, true).pathname;
 
-  console.log(queryData.id);
+  // console.log(queryData.id);
+  // console.log(pathname);
+
   if (pathname === '/') {
     if (queryData.id === undefined) {
       fs.readdir('./data', function (error, fileList) {
@@ -61,6 +65,45 @@ var app = http.createServer(function (request, response) {
         });
       });
     }
+
+  } else if (pathname === '/create') {
+    fs.readdir('./data', function (error, fileList) {
+      var title = 'WEB - create';
+      var list = templateList(fileList);
+      var template = templateHTML(title, list, `
+      <form action="http://localhost:3000/create_post" method="POST">
+      <p><input type="text" name="title" placeholder= "title"></p>
+       <p>
+        <textarea name="description" id="" cols="30" rows="10" placeholder="description"></textarea>
+    </p>
+    <p>
+        <input type="submit">
+    </p>
+</form>`);
+      response.writeHead(200);
+      response.end(template);
+    });
+
+
+  } else if (pathname === '/create_post') {
+    var body = '';
+    request.on('data', function (data) {
+      body = body + data;
+    });
+    request.on('end', function () {
+      var post = qs.parse(body);
+      var title = post.title;
+      var description = post.description;
+      // console.log(post);
+      fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
+        response.writeHead(302, { // redirection 
+          Location: `/?id=${title}`
+        });
+        response.end('success');
+      });
+    });
+
+
 
   } else {
     response.writeHead(404);
